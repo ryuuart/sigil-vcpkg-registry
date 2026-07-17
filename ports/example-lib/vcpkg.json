@@ -1,0 +1,17 @@
+{
+  "name": "example-lib",
+  "version": "1.0.0",
+  "description": "Example port template for the sigil registry. Copy this directory to add a new package.",
+  "homepage": "https://github.com/your-org/example-lib",
+  "license": "MIT",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+# vcpkg build/output artifacts (should never live in a registry repo)
+buildtrees/
+packages/
+installed/
+vcpkg_installed/
+downloads/
+*.log
+.DS_Store

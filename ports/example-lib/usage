@@ -1,0 +1,4 @@
+example-lib provides CMake targets:
+
+    find_package(example-lib CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE example-lib::example-lib)
