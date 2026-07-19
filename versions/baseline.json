@@ -1,5 +1,9 @@
 {
   "default": {
+    "choreograph": {
+      "baseline": "2016-07-21",
+      "port-version": 0
+    },
     "example-lib": {
       "baseline": "1.0.0",
       "port-version": 0
