@@ -1,0 +1,17 @@
+{
+  "name": "choreograph",
+  "version-date": "2016-07-21",
+  "description": "A simple, modern C++ animation and timing library: composable phrases, sequences, motions, and timelines (sansumbrella/Choreograph).",
+  "homepage": "https://github.com/sansumbrella/Choreograph",
+  "license": "BSD-2-Clause",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ]
+}

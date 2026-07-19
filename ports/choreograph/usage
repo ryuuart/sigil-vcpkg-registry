@@ -1,0 +1,8 @@
+choreograph provides CMake targets:
+
+    find_package(choreograph CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE choreograph::choreograph)
+
+Include as:
+
+    #include <choreograph/Choreograph.h>
