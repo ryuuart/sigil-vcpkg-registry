@@ -41,6 +41,16 @@ Two of these deliberately shadow or diverge from what vcpkg ships upstream:
   `SK_USE_PARTITION_ALLOC`). Because the port name matches a builtin one, a
   consumer only gets this version if `"skia"` is listed in this registry's
   `packages` array.
+
+  It also adds a `default-visibility` feature that vcpkg's port does not have.
+  Skia normally compiles with `-fvisibility=hidden`, so a static `libskia.a`
+  linked into an executable exports only the `SK_API` surface. A plugin the host
+  `dlopen`s therefore cannot resolve Skia's internals and has to link its own
+  copy of the archive — leaving two Skia images in one process, each with its
+  own `SkString::gEmptyRec`, so an `SkString` passed between them trips
+  `SkString::validate()`. The feature rebuilds Skia with default visibility so
+  one host can be the single Skia image for its plugins. It is opt-in because
+  the cost is a much larger dynamic symbol table.
 - **`diligent-engine`** has no upstream vcpkg port. It builds the DiligentCore,
   DiligentTools and DiligentFX modules, pinning each of the 17 nested submodules
   itself (only release archives bundle them), and adds the CMake package

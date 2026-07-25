@@ -308,6 +308,27 @@ else()
         cxx=\"${VCPKG_DETECTED_CMAKE_CXX_COMPILER}\"")
 endif()
 
+# Skia compiles itself with -fvisibility=hidden and -fvisibility-inlines-hidden,
+# so a static libskia.a linked into an executable exports only the SK_API surface.
+# That is fine until something dlopen's a plugin that also needs Skia: the plugin
+# cannot resolve Skia's internals (sk_abort_no_print, SkString's out-of-line
+# members, ...) from the host, so it has to link its own copy of the archive, and
+# the process ends up with two Skia images. Objects then cross between them --
+# an SkString allocated by one image and destroyed by the other trips
+# SkString::validate(), because each image has its own gEmptyRec.
+#
+# This feature re-exports everything instead, letting a host be the single Skia
+# image for its plugins. It costs a much larger dynamic symbol table, which is
+# why it is opt-in. The flags are appended to extra_cflags, which GN emits after
+# Skia's own configs, and clang honours the last -fvisibility it is given.
+if("default-visibility" IN_LIST FEATURES)
+    foreach(flag_var IN ITEMS
+        VCPKG_COMBINED_C_FLAGS_DEBUG VCPKG_COMBINED_CXX_FLAGS_DEBUG
+        VCPKG_COMBINED_C_FLAGS_RELEASE VCPKG_COMBINED_CXX_FLAGS_RELEASE)
+        string(APPEND ${flag_var} " -fvisibility=default -fno-visibility-inlines-hidden")
+    endforeach()
+endif()
+
 string_to_gn_list(SKIA_C_FLAGS_DBG "${VCPKG_COMBINED_C_FLAGS_DEBUG}")
 string_to_gn_list(SKIA_CXX_FLAGS_DBG "${VCPKG_COMBINED_CXX_FLAGS_DEBUG}")
 string(APPEND OPTIONS_DBG " \

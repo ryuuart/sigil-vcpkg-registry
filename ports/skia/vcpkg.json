@@ -1,6 +1,7 @@
 {
   "name": "skia",
   "version": "151",
+  "port-version": 1,
   "description": [
     "Skia is an open source 2D graphics library which provides common APIs that work across a variety of hardware and software platforms.",
     "It serves as the graphics engine for Google Chrome and Chrome OS, Android, Mozilla Firefox and Firefox OS, and many other products.",
@@ -103,6 +104,9 @@
           ]
         }
       ]
+    },
+    "default-visibility": {
+      "description": "Build with default symbol visibility, so an executable linking Skia can re-export it to dlopened plugins instead of each plugin linking its own copy"
     },
     "direct3d": {
       "description": "Direct3D support for skia",
