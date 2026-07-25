@@ -7,7 +7,19 @@
 # lib/<Module>/<CONFIG>/, so this port flattens the layout into the vcpkg one and
 # supplies its own `unofficial-diligent-engine` config.
 
-vcpkg_check_linkage(ONLY_STATIC_LIBRARY)
+# Diligent builds a static and a shared flavour of each graphics backend and
+# offers no switch to pick one, so the triplet decides which gets installed.
+# DiligentCore, DiligentTools and DiligentFX are only ever static archives
+# upstream, so they are installed either way -- a dynamic triplet gets those
+# plus the backend shared libraries, which is the same shape a system-wide
+# install of Diligent produces.
+set(DILIGENT_SHARED_MODULE_NAMES
+    GraphicsEngineOpenGL
+    GraphicsEngineVk
+    GraphicsEngineD3D11
+    GraphicsEngineD3D12
+    Archiver
+)
 
 vcpkg_download_distfile(ARCHIVE
     URLS "https://github.com/DiligentGraphics/DiligentEngine/releases/download/v${VERSION}/DiligentEngine_v${VERSION}.zip"
@@ -29,6 +41,19 @@ vcpkg_extract_source_archive(SOURCE_PATH ARCHIVE "${ARCHIVE}")
 vcpkg_replace_string("${SOURCE_PATH}/DiligentCore/BuildTools/CMakeLists.txt"
     "/FormatValidation/clang-format"
     "/FormatValidation/vcpkg-formatting-disabled-clang-format"
+)
+
+# Diligent gives every target an explicit STATIC/SHARED and does not support
+# BUILD_SHARED_LIBS. With it on -- which vcpkg_cmake_configure does for a dynamic
+# triplet -- its internal helper libraries (Diligent-Primitives, Diligent-Common,
+# Diligent-ApplePlatform, glslang, ...) become shared objects whose symbols are
+# then hidden by -fvisibility=hidden, and every backend fails to link with
+# undefined references. It has to be forced here rather than through OPTIONS
+# because vcpkg_cmake_configure appends its own -DBUILD_SHARED_LIBS last.
+# This does not cost us the shared backends: those are declared SHARED outright.
+vcpkg_replace_string("${SOURCE_PATH}/CMakeLists.txt"
+    "project(DiligentEngine)"
+    "project(DiligentEngine)\n\nset(BUILD_SHARED_LIBS OFF CACHE BOOL \"\" FORCE)"
 )
 
 # Diligent expresses backends as opt-outs, so the feature flags are inverted.
@@ -102,39 +127,56 @@ function(diligent_flatten_libdir libdir)
     endforeach()
 endfunction()
 
-diligent_flatten_libdir("${CURRENT_PACKAGES_DIR}/lib")
-diligent_flatten_libdir("${CURRENT_PACKAGES_DIR}/debug/lib")
+foreach(dir lib debug/lib bin debug/bin)
+    diligent_flatten_libdir("${CURRENT_PACKAGES_DIR}/${dir}")
+endforeach()
 
-# Keep only the three combined Diligent archives. Everything else upstream drops
-# in lib/ is a duplicate: the per-backend shared libraries restate what the
-# static DiligentCore archive already holds, and the vendored third-party
-# archives (libpng16, ZLib, LibJpeg, LibTiff, glslang, SPIRV*, glew) are already
-# merged into the combined libraries by install_combined_static_lib. Shipping
-# them separately is not just redundant, it breaks installation: Diligent's
-# libpng16.a collides with vcpkg's own libpng port, which `skia` depends on, so
-# the two ports could not coexist in one install tree.
-function(diligent_keep_only_combined_libs libdir)
-    if(NOT IS_DIRECTORY "${libdir}")
+# Reduces an installed file name to the Diligent module it belongs to, undoing
+# the lib prefix and the _32r/_64d suffix set_dll_output_name adds on Windows:
+# libGraphicsEngineVk.dylib and GraphicsEngineVk_64r.dll both -> GraphicsEngineVk.
+function(diligent_module_name path out_var)
+    get_filename_component(name "${path}" NAME)
+    string(REGEX REPLACE "^lib" "" name "${name}")
+    string(REGEX REPLACE "\\.(a|so|dylib|dll|lib)(\\.[0-9.]+)?$" "" name "${name}")
+    string(REGEX REPLACE "_(32|64)[rd]$" "" name "${name}")
+    set(${out_var} "${name}" PARENT_SCOPE)
+endfunction()
+
+# Everything upstream drops in lib/ beyond the combined archives and (on a
+# dynamic triplet) the backend shared libraries is a duplicate: the vendored
+# third-party archives (libpng16, ZLib, LibJpeg, LibTiff, glslang, SPIRV*, glew)
+# are already merged into the combined libraries by install_combined_static_lib.
+# Shipping them separately is not merely redundant, it breaks installation --
+# Diligent's libpng16.a collides with vcpkg's own libpng port, which `skia`
+# depends on, so the two ports could not coexist in one install tree.
+function(diligent_prune_dir dir keep_shared)
+    if(NOT IS_DIRECTORY "${dir}")
         return()
     endif()
-    file(GLOB libs "${libdir}/*")
-    foreach(lib IN LISTS libs)
-        get_filename_component(lib_name "${lib}" NAME)
-        # libDiligentCore.a / DiligentCore.lib / libDiligentFX.a ...
-        if(NOT lib_name MATCHES "^(lib)?Diligent")
-            file(REMOVE_RECURSE "${lib}")
+    file(GLOB entries "${dir}/*")
+    foreach(entry IN LISTS entries)
+        diligent_module_name("${entry}" module)
+        set(keep FALSE)
+        if(module MATCHES "^Diligent(Core|Tools|FX)$")
+            set(keep TRUE)
+        elseif(keep_shared AND module IN_LIST DILIGENT_SHARED_MODULE_NAMES)
+            # Keeps the shared library and, on Windows, its import library too.
+            set(keep TRUE)
+        endif()
+        if(NOT keep)
+            file(REMOVE_RECURSE "${entry}")
         endif()
     endforeach()
 endfunction()
 
-diligent_keep_only_combined_libs("${CURRENT_PACKAGES_DIR}/lib")
-diligent_keep_only_combined_libs("${CURRENT_PACKAGES_DIR}/debug/lib")
+set(keep_shared FALSE)
+if(VCPKG_LIBRARY_LINKAGE STREQUAL "dynamic")
+    set(keep_shared TRUE)
+endif()
 
-# Tools link the shared backends that were just removed.
-file(REMOVE_RECURSE
-    "${CURRENT_PACKAGES_DIR}/bin"
-    "${CURRENT_PACKAGES_DIR}/debug/bin"
-)
+foreach(dir lib debug/lib bin debug/bin)
+    diligent_prune_dir("${CURRENT_PACKAGES_DIR}/${dir}" ${keep_shared})
+endforeach()
 
 file(GLOB_RECURSE installed_libs
     "${CURRENT_PACKAGES_DIR}/lib/*"
@@ -214,6 +256,50 @@ list(APPEND DILIGENT_PUBLIC_DEFINITIONS
     WEBGPU_SUPPORTED=0
     ARCHIVER_SUPPORTED=1
 )
+
+# Locate an installed artifact belonging to `module`, as a prefix-relative path.
+function(diligent_find_module_file dir module pattern out_var)
+    set(result "")
+    file(GLOB candidates "${CURRENT_PACKAGES_DIR}/${dir}/*")
+    foreach(candidate IN LISTS candidates)
+        diligent_module_name("${candidate}" candidate_module)
+        if(candidate_module STREQUAL module AND candidate MATCHES "${pattern}")
+            file(RELATIVE_PATH result "${CURRENT_PACKAGES_DIR}" "${candidate}")
+            break()
+        endif()
+    endforeach()
+    set(${out_var} "${result}" PARENT_SCOPE)
+endfunction()
+
+# Emit one _diligent_add_shared_module() call per backend that was actually
+# installed, with the paths resolved here rather than guessed at find_package
+# time -- only the port knows how this triplet named the artifacts.
+set(DILIGENT_SHARED_MODULE_CALLS "")
+if(keep_shared)
+    set(shared_pattern "\\.(dylib|so|dll)($|\\.)")
+    foreach(module IN LISTS DILIGENT_SHARED_MODULE_NAMES)
+        # On Windows the runtime lives in bin/ and the import library in lib/;
+        # elsewhere the shared library itself sits in lib/ and there is no implib.
+        diligent_find_module_file(bin "${module}" "${shared_pattern}" rel_loc)
+        if(NOT rel_loc)
+            diligent_find_module_file(lib "${module}" "${shared_pattern}" rel_loc)
+        endif()
+        if(NOT rel_loc)
+            continue()
+        endif()
+        diligent_find_module_file(debug/bin "${module}" "${shared_pattern}" dbg_loc)
+        if(NOT dbg_loc)
+            diligent_find_module_file(debug/lib "${module}" "${shared_pattern}" dbg_loc)
+        endif()
+        diligent_find_module_file(lib "${module}" "\\.lib$" rel_implib)
+        diligent_find_module_file(debug/lib "${module}" "\\.lib$" dbg_implib)
+
+        string(APPEND DILIGENT_SHARED_MODULE_CALLS
+            "_diligent_add_shared_module(${module}"
+            " \"${rel_loc}\" \"${dbg_loc}\""
+            " \"${rel_implib}\" \"${dbg_implib}\")\n")
+    endforeach()
+endif()
 
 configure_file(
     "${CMAKE_CURRENT_LIST_DIR}/unofficial-diligent-engine-config.cmake.in"

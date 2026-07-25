@@ -65,6 +65,44 @@ _diligent_add_module(DiligentCore)
 _diligent_add_module(DiligentTools)
 _diligent_add_module(DiligentFX)
 
+# Declares a backend shared library, e.g. unofficial::diligent-engine::GraphicsEngineVk.
+# Only emitted on a dynamic triplet; upstream has no shared flavour of
+# DiligentCore/Tools/FX, so those stay static archives in either case.
+function(_diligent_add_shared_module name rel_loc dbg_loc rel_implib dbg_implib)
+    if(TARGET unofficial::diligent-engine::${name})
+        return()
+    endif()
+    add_library(unofficial::diligent-engine::${name} SHARED IMPORTED)
+    set_target_properties(unofficial::diligent-engine::${name} PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${_diligent_include_dirs}"
+        INTERFACE_COMPILE_DEFINITIONS "${_diligent_definitions}"
+    )
+    if(rel_loc)
+        set_property(TARGET unofficial::diligent-engine::${name} APPEND PROPERTY
+            IMPORTED_CONFIGURATIONS RELEASE)
+        set_target_properties(unofficial::diligent-engine::${name} PROPERTIES
+            IMPORTED_LOCATION_RELEASE "${_diligent_prefix}/${rel_loc}"
+            IMPORTED_LOCATION "${_diligent_prefix}/${rel_loc}")
+        if(rel_implib)
+            set_target_properties(unofficial::diligent-engine::${name} PROPERTIES
+                IMPORTED_IMPLIB_RELEASE "${_diligent_prefix}/${rel_implib}"
+                IMPORTED_IMPLIB "${_diligent_prefix}/${rel_implib}")
+        endif()
+    endif()
+    if(dbg_loc)
+        set_property(TARGET unofficial::diligent-engine::${name} APPEND PROPERTY
+            IMPORTED_CONFIGURATIONS DEBUG)
+        set_target_properties(unofficial::diligent-engine::${name} PROPERTIES
+            IMPORTED_LOCATION_DEBUG "${_diligent_prefix}/${dbg_loc}")
+        if(dbg_implib)
+            set_target_properties(unofficial::diligent-engine::${name} PROPERTIES
+                IMPORTED_IMPLIB_DEBUG "${_diligent_prefix}/${dbg_implib}")
+        endif()
+    endif()
+endfunction()
+
+@DILIGENT_SHARED_MODULE_CALLS@
+
 if(NOT TARGET unofficial::diligent-engine::DiligentCore)
     set(unofficial-diligent-engine_FOUND FALSE)
     set(unofficial-diligent-engine_NOT_FOUND_MESSAGE
@@ -72,21 +110,24 @@ if(NOT TARGET unofficial::diligent-engine::DiligentCore)
     return()
 endif()
 
-# System libraries the engine links against but that a static archive cannot record.
+# System libraries the engine links against but that a static archive cannot
+# record. On Apple these mirror the frameworks DiligentCore's own CMake looks up
+# (CoreGraphics/Metal/QuartzCore/IOSurface for the Vulkan-on-MoltenVK backend,
+# the OpenGL framework for the GL one) plus Cocoa for the macOS GL context.
+# They are listed unconditionally: an unused framework costs only a load
+# command, and a config file cannot see which backends the port enabled.
 set(_diligent_system_libs "")
 if(APPLE)
-    foreach(_fw Cocoa Foundation Metal QuartzCore IOKit IOSurface AppKit)
-        find_library(_diligent_fw_${_fw} ${_fw})
-        if(_diligent_fw_${_fw})
-            list(APPEND _diligent_system_libs "${_diligent_fw_${_fw}}")
-        endif()
-    endforeach()
-    # Linked unconditionally: an unused framework only costs a load command, and
-    # this file has no visibility into which backends the port was built with.
-    find_library(_diligent_fw_OpenGL OpenGL)
-    if(_diligent_fw_OpenGL)
-        list(APPEND _diligent_system_libs "${_diligent_fw_OpenGL}")
-    endif()
+    list(APPEND _diligent_system_libs
+        "-framework Cocoa"
+        "-framework CoreGraphics"
+        "-framework Foundation"
+        "-framework IOKit"
+        "-framework IOSurface"
+        "-framework Metal"
+        "-framework OpenGL"
+        "-framework QuartzCore"
+    )
 elseif(UNIX)
     find_package(Threads QUIET)
     if(TARGET Threads::Threads)

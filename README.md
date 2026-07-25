@@ -27,13 +27,19 @@ Two of these deliberately shadow or diverge from what vcpkg ships upstream:
   `packages` array.
 - **`diligent-engine`** has no upstream vcpkg port. It builds the DiligentCore,
   DiligentTools and DiligentFX modules from the official release archive — the
-  only drop that ships all of the nested submodules — as **static libraries**,
-  and adds the CMake package config that upstream does not provide. That config
-  also carries Diligent's public compile definitions (`PLATFORM_*`,
-  `*_SUPPORTED`), without which its headers refuse to compile. Samples and
-  tutorials are not built, and the Metal and WebGPU backends are unavailable.
+  only drop that ships all of the nested submodules — and adds the CMake package
+  config that upstream does not provide. That config also carries Diligent's
+  public compile definitions (`PLATFORM_*`, `*_SUPPORTED`), without which its
+  headers refuse to compile. It honours the triplet's linkage: a dynamic triplet
+  additionally installs the graphics backends as shared libraries, each with its
+  own target. DiligentCore/Tools/FX are static archives either way, because
+  upstream builds no shared flavour of them — so a dynamic install has the same
+  shape as a system-wide install of Diligent. Samples and tutorials are not
+  built, and the Metal and WebGPU backends are unavailable.
 
-Both ports were build-tested on `arm64-osx` only; other triplets are unverified.
+Both ports were build-tested on `arm64-osx`, and `diligent-engine` also on
+`arm64-osx-dynamic`; other triplets are unverified. The Windows shared-library
+path in particular is written from upstream's build rules rather than observed.
 
 ## Layout
 

@@ -15,6 +15,22 @@ Headers keep their upstream layout, so both include styles work:
 The samples and tutorials are not built by this port. The Metal backend is not
 available: it ships only in the closed-source DiligentCorePro module.
 
-Only the static flavour of each backend is installed, so obtain factories by
-calling GetEngineFactoryVk()/GetEngineFactoryOpenGL()/... directly rather than
-through the LoadGraphicsEngine*() runtime loaders, which need the shared ones.
+On a dynamic triplet the graphics backends are additionally installed as shared
+libraries, each with its own target:
+
+    unofficial::diligent-engine::GraphicsEngineVk
+    unofficial::diligent-engine::GraphicsEngineOpenGL
+    unofficial::diligent-engine::GraphicsEngineD3D11    # Windows
+    unofficial::diligent-engine::GraphicsEngineD3D12    # Windows
+    unofficial::diligent-engine::Archiver
+
+Link one of those to get the backend as a shared library; link only
+DiligentCore to get it statically. Either way the factory is reached by calling
+GetEngineFactoryVk()/GetEngineFactoryOpenGL()/... directly.
+
+DiligentCore, DiligentTools and DiligentFX are always static archives -- upstream
+builds no shared flavour of them, so a dynamic triplet gets those plus the shared
+backends, matching what a system-wide install of Diligent produces.
+
+To load a backend at runtime instead of linking it (Windows/MSVC only), define
+ENGINE_DLL=1 in your own target and call LoadGraphicsEngineVk().
