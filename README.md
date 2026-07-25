@@ -4,6 +4,37 @@ A [vcpkg git registry](https://learn.microsoft.com/vcpkg/produce/publish-to-a-gi
 hosting custom C/C++ packages ("ports"). Downstream projects reference this repo
 as a registry source and pull in only the ports they list.
 
+## Ports
+
+| Port | Version | Upstream |
+| --- | --- | --- |
+| `choreograph` | 2016-07-21 | [sansumbrella/Choreograph](https://github.com/sansumbrella/Choreograph) |
+| `diligent-engine` | 2.5.6 | [DiligentGraphics/DiligentEngine](https://github.com/DiligentGraphics/DiligentEngine) |
+| `example-lib` | 1.0.0 | (template) |
+| `skia` | 151 | [google/skia](https://skia.googlesource.com/skia) |
+
+Two of these deliberately shadow or diverge from what vcpkg ships upstream:
+
+- **`skia`** is a fork of vcpkg's builtin `skia` port, which tracks milestone
+  148. This copy is bumped to the `chrome/m151` branch head, with the external
+  revisions taken from that branch's `DEPS` and three of the upstream patches
+  rebased. It also builds with `skia_use_partition_alloc=false`: m151 made the
+  main target depend on `//src/partition_alloc:raw_ptr`, and honouring that
+  would mean vendoring both PartitionAlloc and Chromium's `buildtools`, so the
+  port takes Skia's own no-op `raw_ptr` instead (and thus does not define
+  `SK_USE_PARTITION_ALLOC`). Because the port name matches a builtin one, a
+  consumer only gets this version if `"skia"` is listed in this registry's
+  `packages` array.
+- **`diligent-engine`** has no upstream vcpkg port. It builds the DiligentCore,
+  DiligentTools and DiligentFX modules from the official release archive — the
+  only drop that ships all of the nested submodules — as **static libraries**,
+  and adds the CMake package config that upstream does not provide. That config
+  also carries Diligent's public compile definitions (`PLATFORM_*`,
+  `*_SUPPORTED`), without which its headers refuse to compile. Samples and
+  tutorials are not built, and the Metal and WebGPU backends are unavailable.
+
+Both ports were build-tested on `arm64-osx` only; other triplets are unverified.
+
 ## Layout
 
 ```
@@ -65,11 +96,13 @@ Then list the port as a normal dependency in the project's **`vcpkg.json`**:
    (name, version, dependencies) and `portfile.cmake` (fetch + build).
 2. Commit the port changes.
 3. Regenerate the version database:
+
    ```sh
    vcpkg --x-builtin-ports-root=./ports \
          --x-builtin-registry-versions-dir=./versions \
          x-add-version <your-port>
    ```
+
    (Add `--overwrite-version` if you re-tagged an existing version.)
 4. Commit the updated `versions/` files.
 5. Push. Consumers pick up the change by bumping their `baseline` to your new
