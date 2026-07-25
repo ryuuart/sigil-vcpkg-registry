@@ -1,0 +1,67 @@
+{
+  "name": "diligent-engine",
+  "version": "2.5.6",
+  "description": [
+    "Diligent Engine: a modern cross-platform low-level 3D graphics library.",
+    "Provides a thin abstraction layer over Direct3D11, Direct3D12, OpenGL/GLES and Vulkan, with a common HLSL-based shader pipeline. This port builds the DiligentCore, DiligentTools and DiligentFX modules as static libraries; the samples and tutorials are not built, and the Metal and WebGPU backends are unavailable."
+  ],
+  "homepage": "https://github.com/DiligentGraphics/DiligentEngine",
+  "documentation": "https://diligentgraphics.com/diligent-engine/",
+  "license": "Apache-2.0",
+  "supports": "(windows | linux | osx) & !uwp & !mingw & !arm32",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ],
+  "default-features": [
+    {
+      "name": "d3d11",
+      "platform": "windows"
+    },
+    {
+      "name": "d3d12",
+      "platform": "windows"
+    },
+    "fx",
+    "opengl",
+    "tools",
+    "vulkan"
+  ],
+  "features": {
+    "d3d11": {
+      "description": "Direct3D11 backend",
+      "supports": "windows"
+    },
+    "d3d12": {
+      "description": "Direct3D12 backend",
+      "supports": "windows"
+    },
+    "fx": {
+      "description": "Build the DiligentFX high-level rendering module (requires tools)",
+      "dependencies": [
+        {
+          "name": "diligent-engine",
+          "default-features": false,
+          "features": [
+            "tools"
+          ]
+        }
+      ]
+    },
+    "opengl": {
+      "description": "OpenGL/GLES backend"
+    },
+    "tools": {
+      "description": "Build the DiligentTools module (texture loader, GLTF loader, imgui integration)"
+    },
+    "vulkan": {
+      "description": "Vulkan backend (uses the Vulkan headers and volk loader bundled with Diligent)"
+    }
+  }
+}

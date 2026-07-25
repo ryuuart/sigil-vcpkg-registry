@@ -1,0 +1,20 @@
+diligent-engine provides CMake targets:
+
+    find_package(unofficial-diligent-engine CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE
+        unofficial::diligent-engine::DiligentCore
+        unofficial::diligent-engine::DiligentTools   # with the "tools" feature
+        unofficial::diligent-engine::DiligentFX      # with the "fx" feature
+    )
+
+Headers keep their upstream layout, so both include styles work:
+
+    #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
+    #include "DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
+
+The samples and tutorials are not built by this port. The Metal backend is not
+available: it ships only in the closed-source DiligentCorePro module.
+
+Only the static flavour of each backend is installed, so obtain factories by
+calling GetEngineFactoryVk()/GetEngineFactoryOpenGL()/... directly rather than
+through the LoadGraphicsEngine*() runtime loaders, which need the shared ones.
