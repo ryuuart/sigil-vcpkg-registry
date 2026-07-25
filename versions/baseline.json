@@ -5,7 +5,7 @@
       "port-version": 0
     },
     "diligent-engine": {
-      "baseline": "2.5.6",
+      "baseline": "2026-07-22",
       "port-version": 0
     },
     "example-lib": {
