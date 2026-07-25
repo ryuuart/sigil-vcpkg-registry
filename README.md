@@ -9,9 +9,25 @@ as a registry source and pull in only the ports they list.
 | Port | Version | Upstream |
 | --- | --- | --- |
 | `choreograph` | 2016-07-21 | [sansumbrella/Choreograph](https://github.com/sansumbrella/Choreograph) |
-| `diligent-engine` | 2.5.6 | [DiligentGraphics/DiligentEngine](https://github.com/DiligentGraphics/DiligentEngine) |
+| `diligent-engine` | 2026-07-22 (also 2.5.6) | [DiligentGraphics/DiligentEngine](https://github.com/DiligentGraphics/DiligentEngine) |
 | `example-lib` | 1.0.0 | (template) |
 | `skia` | 151 | [google/skia](https://skia.googlesource.com/skia) |
+
+`diligent-engine` is registered at two versions. The baseline is a snapshot of
+the `master` branch, which is where Diligent lands finished work between its
+infrequent releases — the last one, v2.5.6, is from September 2024, while master
+carries API version 256020 against that tag's 255001. Master has no upstream
+version number, so it is dated after the pinned commit, per vcpkg's convention
+for an untagged snapshot. The v2.5.6 release is still registered and can be
+selected with an exact pin:
+
+```json
+{ "overrides": [ { "name": "diligent-engine", "version": "2.5.6" } ] }
+```
+
+Note that the two use different version schemes (`date` and `relaxed`), which
+vcpkg cannot order against each other. An exact `overrides` pin works, but a
+`version>=` constraint spanning them fails with an incomparable-schemes error.
 
 Two of these deliberately shadow or diverge from what vcpkg ships upstream:
 
@@ -26,8 +42,8 @@ Two of these deliberately shadow or diverge from what vcpkg ships upstream:
   consumer only gets this version if `"skia"` is listed in this registry's
   `packages` array.
 - **`diligent-engine`** has no upstream vcpkg port. It builds the DiligentCore,
-  DiligentTools and DiligentFX modules from the official release archive — the
-  only drop that ships all of the nested submodules — and adds the CMake package
+  DiligentTools and DiligentFX modules, pinning each of the 17 nested submodules
+  itself (only release archives bundle them), and adds the CMake package
   config that upstream does not provide. That config also carries Diligent's
   public compile definitions (`PLATFORM_*`, `*_SUPPORTED`), without which its
   headers refuse to compile. It honours the triplet's linkage: a dynamic triplet

@@ -1,7 +1,17 @@
-# DiligentEngine is a superproject whose modules live in git submodules, which in
-# turn have their own submodules for the vendored third-party libraries. The
-# GitHub release archive is the only source drop that ships all of them, so the
-# port fetches that rather than using vcpkg_from_github.
+# This port tracks the master branch, which is where Diligent lands finished work
+# between its infrequent releases -- v2.5.6 is from September 2024, while master
+# carries API version 256020 against that tag's 255001. There is no upstream
+# version number for it, so it is dated after the pinned commit, matching vcpkg's
+# convention for an untagged snapshot. The v2.5.6 release remains registered in
+# the version database and can still be selected with an exact `overrides` pin.
+#
+# DiligentEngine is a superproject whose modules are git submodules that in turn
+# vendor their third-party libraries the same way. Only release archives bundle
+# all of those, so a master snapshot has to pin each submodule itself. They are
+# fetched with vcpkg_from_git rather than vcpkg_from_github because the commit
+# hash is already the integrity check, which avoids carrying 18 tarball SHA512s.
+# DiligentSamples and its two submodules are deliberately absent: the samples are
+# not built, and the root CMakeLists only descends into them on request.
 #
 # Upstream exports no CMake package config and installs its libraries into
 # lib/<Module>/<CONFIG>/, so this port flattens the layout into the vcpkg one and
@@ -21,23 +31,71 @@ set(DILIGENT_SHARED_MODULE_NAMES
     Archiver
 )
 
-vcpkg_download_distfile(ARCHIVE
-    URLS "https://github.com/DiligentGraphics/DiligentEngine/releases/download/v${VERSION}/DiligentEngine_v${VERSION}.zip"
-    FILENAME "DiligentEngine_v${VERSION}.zip"
-    SHA512 435b67a62fd67b5a4fdfd4af084a5a14b092aaa93a473533ee85c0a0d7112a1d5284f753daf174f75e1d3059b1ec1b5a3cea85b1b3dd20555faf26b1912ad31e
+vcpkg_from_git(
+    OUT_SOURCE_PATH SOURCE_PATH
+    URL https://github.com/DiligentGraphics/DiligentEngine.git
+    REF 7e2507fe4ae0157cf563a8aa4d88ff8cf5eb7f00
 )
 
-vcpkg_extract_source_archive(SOURCE_PATH ARCHIVE "${ARCHIVE}")
+# "<destination under SOURCE_PATH>|<DiligentGraphics repo>|<commit>", in order:
+# a module has to land before the third-party submodules nested inside it,
+# otherwise copying the module over the tree would wipe them out again.
+set(DILIGENT_SUBMODULES
+    "DiligentCore|DiligentCore|fa060f50549238578e1701b5d362d7cff2bf48c7"
+    "DiligentTools|DiligentTools|260a1e47a743b0f07c9f50da3a7e31e11f815953"
+    "DiligentFX|DiligentFX|eb616a8e30efa5193baba71ff1edae85bc6230a1"
+    "DiligentCore/ThirdParty/SPIRV-Cross|SPIRV-Cross|1a6169566c73d3da552748fc372fe2bbb856e46e"
+    "DiligentCore/ThirdParty/SPIRV-Headers|SPIRV-Headers|ad9184e76a66b1001c29db9b0a3e87f646c64de0"
+    "DiligentCore/ThirdParty/SPIRV-Tools|SPIRV-Tools|0539c81f69a3daeb706fd3477dca61435b475156"
+    "DiligentCore/ThirdParty/Vulkan-Headers|Vulkan-Headers|8864cdc896bbc2a9b6eb36b3218fc9ef57908d77"
+    "DiligentCore/ThirdParty/glslang|glslang|275822a6261ee689aadb1da5f09a0ec2f058685c"
+    "DiligentCore/ThirdParty/googletest|googletest|85087857ad10bd407cd6ed2f52f7ea9752db621f"
+    "DiligentCore/ThirdParty/volk|volk|3ca312a4f38baa63d8006b6905abbeeb89c8087d"
+    "DiligentCore/ThirdParty/xxHash|xxHash|66979328cf3f15cecdc61ea58c9f81e6071f8983"
+    "DiligentTools/ThirdParty/args|args|6c223d46dbb1db72320a93404552117b12d0e7ab"
+    "DiligentTools/ThirdParty/imgui|imgui|2744a710ba671a91b0d80a0e075cd9fcb8b1322d"
+    "DiligentTools/ThirdParty/json|json|55f93686c01528224f448c19128836e7df245f72"
+    "DiligentTools/ThirdParty/libpng|libpng|65bc84e803c0ccbf7aa1023e91b5808586ea1b66"
+    "DiligentTools/ThirdParty/stb|stb|46fcb30365c5f35425751d275eecd8e5f8efc786"
+    "DiligentTools/ThirdParty/zlib|zlib|0d8cda5065ba1bcea871f0b5ac1410186ea9405e"
+)
 
-# The release zip stores the bundled clang-format binaries without the execute
-# bit, so the RenderStateNotation generator dies with "Permission denied" when it
-# tries to pretty-print the parser headers it just generated. Pointing
-# CLANG_FORMAT_EXECUTABLE at a path that does not exist takes the documented
-# "clang-format executable is not found" branch, which skips formatting only --
-# the generated headers themselves are unaffected. Overriding the variable from
-# the command line is not an option: it is set unconditionally as CACHE INTERNAL.
-# The other consumer, add_format_validation_target, is already off via
-# DILIGENT_NO_FORMAT_VALIDATION below.
+foreach(submodule IN LISTS DILIGENT_SUBMODULES)
+    string(REPLACE "|" ";" submodule "${submodule}")
+    list(GET submodule 0 submodule_dest)
+    list(GET submodule 1 submodule_repo)
+    list(GET submodule 2 submodule_ref)
+
+    vcpkg_from_git(
+        OUT_SOURCE_PATH submodule_source
+        URL "https://github.com/DiligentGraphics/${submodule_repo}.git"
+        REF "${submodule_ref}"
+    )
+    file(REMOVE_RECURSE "${SOURCE_PATH}/${submodule_dest}")
+    file(COPY "${submodule_source}/" DESTINATION "${SOURCE_PATH}/${submodule_dest}")
+endforeach()
+
+# On master DiligentFX pulls entt in with FetchContent, which cannot work under
+# vcpkg: vcpkg_cmake_configure sets FETCHCONTENT_FULLY_DISCONNECTED=ON, so the
+# fetch is skipped and configuration then fails on the empty source directory.
+# Providing the tree ourselves and pointing FetchContent at it keeps the build
+# hermetic. entt is only used by Hydrogent, whose headers are not installed, so
+# it stays a build-time dependency and never reaches consumers.
+vcpkg_from_git(
+    OUT_SOURCE_PATH ENTT_SOURCE_PATH
+    URL https://github.com/skypjack/entt.git
+    REF b4e58bdd364ad72246c123a0c28538eab3252672  # v3.16.0, the tag DiligentFX declares
+)
+
+# The RenderStateNotation generator pretty-prints the parser headers it emits
+# using a clang-format binary vendored in the tree, which is fragile to depend on
+# (release archives even drop its execute bit) and is a decade-old x86-64 build.
+# Pointing CLANG_FORMAT_EXECUTABLE somewhere that does not exist takes the
+# documented "clang-format executable is not found" branch, skipping the
+# formatting only -- the generated headers themselves are unaffected. Overriding
+# the variable from the command line is not an option: it is set unconditionally
+# as CACHE INTERNAL. The other consumer, add_format_validation_target, is already
+# off via DILIGENT_NO_FORMAT_VALIDATION below.
 vcpkg_replace_string("${SOURCE_PATH}/DiligentCore/BuildTools/CMakeLists.txt"
     "/FormatValidation/clang-format"
     "/FormatValidation/vcpkg-formatting-disabled-clang-format"
@@ -51,9 +109,14 @@ vcpkg_replace_string("${SOURCE_PATH}/DiligentCore/BuildTools/CMakeLists.txt"
 # undefined references. It has to be forced here rather than through OPTIONS
 # because vcpkg_cmake_configure appends its own -DBUILD_SHARED_LIBS last.
 # This does not cost us the shared backends: those are declared SHARED outright.
+#
+# The find_package(absl) is for master's new DiligentFX/Radient component, which
+# links absl::flat_hash_map without ever providing Abseil itself -- it assumes an
+# enclosing build already brought it in. Resolving it from vcpkg lets Radient
+# build rather than switching it off with DILIGENT_NO_RADIENT.
 vcpkg_replace_string("${SOURCE_PATH}/CMakeLists.txt"
     "project(DiligentEngine)"
-    "project(DiligentEngine)\n\nset(BUILD_SHARED_LIBS OFF CACHE BOOL \"\" FORCE)"
+    "project(DiligentEngine)\n\nset(BUILD_SHARED_LIBS OFF CACHE BOOL \"\" FORCE)\nfind_package(absl CONFIG REQUIRED)"
 )
 
 # Diligent expresses backends as opt-outs, so the feature flags are inverted.
@@ -72,6 +135,7 @@ vcpkg_cmake_configure(
     SOURCE_PATH "${SOURCE_PATH}"
     OPTIONS
         ${FEATURE_OPTIONS}
+        "-DFETCHCONTENT_SOURCE_DIR_ENTT=${ENTT_SOURCE_PATH}"
         -DDILIGENT_BUILD_SAMPLES=OFF
         -DDILIGENT_BUILD_TESTS=OFF
         -DDILIGENT_BUILD_DOCS=OFF

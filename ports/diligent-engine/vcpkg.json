@@ -1,6 +1,6 @@
 {
   "name": "diligent-engine",
-  "version": "2.5.6",
+  "version-date": "2026-07-22",
   "description": [
     "Diligent Engine: a modern cross-platform low-level 3D graphics library.",
     "Provides a thin abstraction layer over Direct3D11, Direct3D12, OpenGL/GLES and Vulkan, with a common HLSL-based shader pipeline. This port builds the DiligentCore, DiligentTools and DiligentFX modules as static libraries; the samples and tutorials are not built, and the Metal and WebGPU backends are unavailable."
@@ -10,6 +10,7 @@
   "license": "Apache-2.0",
   "supports": "(windows | linux | osx) & !uwp & !mingw & !arm32",
   "dependencies": [
+    "abseil",
     {
       "name": "vcpkg-cmake",
       "host": true
