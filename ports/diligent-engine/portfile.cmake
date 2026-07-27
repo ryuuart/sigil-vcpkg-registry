@@ -206,13 +206,94 @@ function(diligent_module_name path out_var)
     set(${out_var} "${name}" PARENT_SCOPE)
 endfunction()
 
-# Everything upstream drops in lib/ beyond the combined archives and (on a
-# dynamic triplet) the backend shared libraries is a duplicate: the vendored
-# third-party archives (libpng16, ZLib, LibJpeg, LibTiff, glslang, SPIRV*, glew)
-# are already merged into the combined libraries by install_combined_static_lib.
-# Shipping them separately is not merely redundant, it breaks installation --
+# Upstream's install_combined_static_lib merges only Diligent's OWN modules —
+# the vendored third-party archives (glslang + SPIRV* + spirv-cross + volk +
+# glew + xxHash under Core, the image codecs under Tools) install as separate
+# libraries and the combined archives reference their symbols. A static
+# package must therefore merge them in before the loose copies are pruned
+# (pruning alone shipped a libDiligentCore.a with dangling glslang/spirv-cross
+# references — the port-version 1 fix). The prune itself stays mandatory:
 # Diligent's libpng16.a collides with vcpkg's own libpng port, which `skia`
 # depends on, so the two ports could not coexist in one install tree.
+
+# Third-party archives to fold into each combined library, by module name
+# (diligent_module_name form). Missing members are skipped silently — the
+# feature set decides what upstream actually built.
+set(DILIGENT_CORE_MERGE_MODULES
+    glslang MachineIndependent GenericCodeGen OSDependent
+    glslang-default-resource-limits SPIRV SPIRV-Tools SPIRV-Tools-opt
+    SPIRV-Tools-diff spirv-cross-core spirv-cross-glsl volk glew-static
+    xxhash)
+# Merged so DiligentTools' TextureLoader links; consumers pairing Tools with
+# their own libpng/zlib/libjpeg should mind the duplicated symbol families.
+set(DILIGENT_TOOLS_MERGE_MODULES png16 png16d ZLib zlibstatic LibJpeg LibTiff)
+
+function(diligent_merge_thirdparty libdir)
+    if(NOT IS_DIRECTORY "${libdir}")
+        return()
+    endif()
+    foreach(combined IN ITEMS DiligentCore DiligentTools)
+        set(target "${libdir}/${CMAKE_STATIC_LIBRARY_PREFIX}${combined}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+        if(NOT EXISTS "${target}")
+            continue()
+        endif()
+        set(members "")
+        file(GLOB candidates "${libdir}/*${CMAKE_STATIC_LIBRARY_SUFFIX}")
+        foreach(candidate IN LISTS candidates)
+            diligent_module_name("${candidate}" module)
+            if(combined STREQUAL "DiligentCore" AND module IN_LIST DILIGENT_CORE_MERGE_MODULES)
+                list(APPEND members "${candidate}")
+            elseif(combined STREQUAL "DiligentTools" AND module IN_LIST DILIGENT_TOOLS_MERGE_MODULES)
+                list(APPEND members "${candidate}")
+            endif()
+        endforeach()
+        if(NOT members)
+            continue()
+        endif()
+        if(VCPKG_TARGET_IS_OSX)
+            find_program(DILIGENT_LIBTOOL libtool REQUIRED)
+            file(RENAME "${target}" "${target}.self")
+            vcpkg_execute_required_process(
+                COMMAND "${DILIGENT_LIBTOOL}" -static -o "${target}"
+                        "${target}.self" ${members}
+                WORKING_DIRECTORY "${libdir}"
+                LOGNAME "merge-${combined}-${TARGET_TRIPLET}")
+            file(REMOVE "${target}.self")
+        elseif(VCPKG_TARGET_IS_WINDOWS)
+            # lib.exe (or llvm-lib) concatenates archives directly.
+            find_program(DILIGENT_LIB NAMES lib llvm-lib REQUIRED)
+            file(RENAME "${target}" "${target}.self")
+            vcpkg_execute_required_process(
+                COMMAND "${DILIGENT_LIB}" "/OUT:${target}"
+                        "${target}.self" ${members}
+                WORKING_DIRECTORY "${libdir}"
+                LOGNAME "merge-${combined}-${TARGET_TRIPLET}")
+            file(REMOVE "${target}.self")
+        else()
+            # binutils/llvm ar both speak MRI scripts.
+            set(mri "CREATE ${target}.merged\nADDLIB ${target}\n")
+            foreach(member IN LISTS members)
+                string(APPEND mri "ADDLIB ${member}\n")
+            endforeach()
+            string(APPEND mri "SAVE\nEND\n")
+            file(WRITE "${libdir}/merge-${combined}.mri" "${mri}")
+            find_program(DILIGENT_AR NAMES ar llvm-ar REQUIRED)
+            execute_process(
+                COMMAND "${DILIGENT_AR}" -M
+                INPUT_FILE "${libdir}/merge-${combined}.mri"
+                RESULT_VARIABLE mri_result)
+            if(NOT mri_result EQUAL 0)
+                message(FATAL_ERROR "ar -M merge failed for ${combined}")
+            endif()
+            file(REMOVE "${libdir}/merge-${combined}.mri")
+            file(RENAME "${target}.merged" "${target}")
+        endif()
+    endforeach()
+endfunction()
+
+foreach(dir lib debug/lib)
+    diligent_merge_thirdparty("${CURRENT_PACKAGES_DIR}/${dir}")
+endforeach()
 function(diligent_prune_dir dir keep_shared)
     if(NOT IS_DIRECTORY "${dir}")
         return()
