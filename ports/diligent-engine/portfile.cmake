@@ -402,6 +402,42 @@ list(APPEND DILIGENT_PUBLIC_DEFINITIONS
     ARCHIVER_SUPPORTED=1
 )
 
+# The Vulkan backend reaches every entry point through volk, which is compiled
+# into the combined DiligentCore archive. That copy is the engine's own: the
+# volk port builds its static library with no platform definitions, so linking
+# it here would leave the surface entry point the engine calls
+# (vkCreateMetalSurfaceEXT on Apple, its Win32/XCB/Xlib/Wayland counterparts
+# elsewhere) undefined. The port depends on volk for its headers instead, and
+# for volk.c, which the volk port installs beside them: a process that has to
+# point the engine at a loader the stock volkInitialize cannot reach replaces
+# that function by compiling volk itself, and the definitions below are what it
+# must compile with. Compiled with less, its volk is missing the surface entry
+# point, the engine's own copy is pulled in beside it, and every loader symbol
+# is then defined twice.
+#
+# Mirror of DiligentCore/BuildTools/CMake/VulkanUtils.cmake's
+# get_vulkan_platform_definitions(), which is what the engine built its volk
+# with. They travel on a target of their own rather than on DiligentCore:
+# VK_USE_PLATFORM_WIN32_KHR needs windows.h ahead of vulkan.h and the Linux
+# ones need the X11 and Wayland headers, which no consumer should inherit for
+# naming a render device.
+set(DILIGENT_USES_VOLK 0)
+set(DILIGENT_VULKAN_PLATFORM_DEFINITIONS "")
+if("vulkan" IN_LIST FEATURES)
+    set(DILIGENT_USES_VOLK 1)
+    if(VCPKG_TARGET_IS_WINDOWS)
+        set(DILIGENT_VULKAN_PLATFORM_DEFINITIONS VK_USE_PLATFORM_WIN32_KHR=1)
+    elseif(VCPKG_TARGET_IS_OSX)
+        set(DILIGENT_VULKAN_PLATFORM_DEFINITIONS VK_USE_PLATFORM_METAL_EXT=1)
+    elseif(VCPKG_TARGET_IS_LINUX)
+        set(DILIGENT_VULKAN_PLATFORM_DEFINITIONS
+            VK_USE_PLATFORM_XCB_KHR=1
+            VK_USE_PLATFORM_XLIB_KHR=1
+            VK_USE_PLATFORM_WAYLAND_KHR=1
+        )
+    endif()
+endif()
+
 # Locate an installed artifact belonging to `module`, as a prefix-relative path.
 function(diligent_find_module_file dir module pattern out_var)
     set(result "")

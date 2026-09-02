@@ -9,7 +9,7 @@ as a registry source and pull in only the ports they list.
 | Port | Version | Upstream |
 | --- | --- | --- |
 | `choreograph` | 2016-07-21 | [sansumbrella/Choreograph](https://github.com/sansumbrella/Choreograph) |
-| `diligent-engine` | 2026-07-22 (also 2.5.6) | [DiligentGraphics/DiligentEngine](https://github.com/DiligentGraphics/DiligentEngine) |
+| `diligent-engine` | 2026-07-22#2 (also 2.5.6) | [DiligentGraphics/DiligentEngine](https://github.com/DiligentGraphics/DiligentEngine) |
 | `example-lib` | 1.0.0 | (template) |
 | `skia` | 151#2 | [google/skia](https://skia.googlesource.com/skia) |
 
@@ -80,6 +80,25 @@ Two of these deliberately shadow or diverge from what vcpkg ships upstream:
   upstream builds no shared flavour of them — so a dynamic install has the same
   shape as a system-wide install of Diligent. Samples and tutorials are not
   built, and the Metal and WebGPU backends are unavailable.
+
+  Its `vulkan` feature depends on `volk`, and the config declares
+  `unofficial::diligent-engine::volk` for it. The engine dispatches every
+  Vulkan call through volk and carries its own copy, so nothing has to link
+  that target to run; it exists for a process that replaces `volkInitialize`,
+  which is how the engine is pointed at a loader the stock one cannot find —
+  a leaf name and `/usr/local/lib` are all it tries, which on Apple Silicon
+  misses the Homebrew MoltenVK and loader install. Replacing it means
+  compiling `volk.c`, which the volk port installs beside `volk.h`, and the
+  target carries the WSI definitions the engine's own volk was built with
+  (`VK_USE_PLATFORM_METAL_EXT` on Apple, the Win32 and X11/Wayland ones
+  elsewhere). Compiled with less, that volk is missing the surface entry point
+  the engine calls, the engine's copy is pulled in beside it, and every loader
+  symbol is then defined twice. The definitions travel on a target of their
+  own rather than on `DiligentCore`, because `VK_USE_PLATFORM_WIN32_KHR` wants
+  `windows.h` ahead of `vulkan.h` and the Linux ones want the X11 and Wayland
+  headers. The volk port's static library is not linked: it is built with no
+  platform definitions at all, so the engine's surface entry point would be
+  missing from it too.
 
 Both ports were build-tested on `arm64-osx`, and `diligent-engine` also on
 `arm64-osx-dynamic`; other triplets are unverified. The Windows shared-library

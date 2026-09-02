@@ -34,3 +34,23 @@ backends, matching what a system-wide install of Diligent produces.
 
 To load a backend at runtime instead of linking it (Windows/MSVC only), define
 ENGINE_DLL=1 in your own target and call LoadGraphicsEngineVk().
+
+With the "vulkan" feature there is one more target:
+
+    unofficial::diligent-engine::volk
+
+Nothing has to link it to run: the engine dispatches every Vulkan call through
+volk and carries its own copy. It is for a process that replaces volkInitialize
+-- the way to point the engine at a loader the stock one cannot find, since a
+leaf name and /usr/local/lib are all it tries. That means compiling volk.c,
+which the volk port installs beside volk.h:
+
+    #define volkInitialize volkInitializeStock
+    #include <volk.c>
+    #undef volkInitialize
+    VkResult volkInitialize(void) { /* dlopen, then volkInitializeCustom */ }
+
+The target names volk's headers and the WSI definitions the engine's own volk
+was built with, which that translation unit has to compile with. Compiled with
+less, it is missing the surface entry point the engine calls, the engine's copy
+is pulled in beside it, and every loader symbol is defined twice.

@@ -1,7 +1,7 @@
 {
   "name": "diligent-engine",
   "version-date": "2026-07-22",
-  "port-version": 1,
+  "port-version": 2,
   "description": [
     "Diligent Engine: a modern cross-platform low-level 3D graphics library.",
     "Provides a thin abstraction layer over Direct3D11, Direct3D12, OpenGL/GLES and Vulkan, with a common HLSL-based shader pipeline. This port builds the DiligentCore, DiligentTools and DiligentFX modules as static libraries; the samples and tutorials are not built, and the Metal and WebGPU backends are unavailable."
@@ -63,7 +63,10 @@
       "description": "Build the DiligentTools module (texture loader, GLTF loader, imgui integration)"
     },
     "vulkan": {
-      "description": "Vulkan backend (uses the Vulkan headers and volk loader bundled with Diligent)"
+      "description": "Vulkan backend, dispatched through the volk loader",
+      "dependencies": [
+        "volk"
+      ]
     }
   }
 }

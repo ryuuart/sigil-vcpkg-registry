@@ -103,6 +103,28 @@ endfunction()
 
 @DILIGENT_SHARED_MODULE_CALLS@
 
+# The Vulkan loader the engine dispatches through. DiligentCore carries a volk
+# of its own, so linking it is all that running takes -- this target is for a
+# process that replaces volkInitialize, which is how the engine is pointed at a
+# loader the stock one cannot find (a leaf name and /usr/local/lib are all it
+# tries). Replacing it means compiling volk.c, which the volk port installs
+# beside volk.h, and compiling it with the definitions the engine's own volk was
+# built with: with less, the surface entry point the engine calls is missing
+# from it, the engine's copy is pulled in beside it, and every loader symbol is
+# then defined twice.
+set(_diligent_volk_definitions "@DILIGENT_VULKAN_PLATFORM_DEFINITIONS@")
+if(@DILIGENT_USES_VOLK@)
+    include(CMakeFindDependencyMacro)
+    find_dependency(volk CONFIG)
+    if(TARGET volk::volk_headers AND NOT TARGET unofficial::diligent-engine::volk)
+        add_library(unofficial::diligent-engine::volk INTERFACE IMPORTED)
+        set_target_properties(unofficial::diligent-engine::volk PROPERTIES
+            INTERFACE_LINK_LIBRARIES volk::volk_headers
+            INTERFACE_COMPILE_DEFINITIONS "${_diligent_volk_definitions}"
+        )
+    endif()
+endif()
+
 if(NOT TARGET unofficial::diligent-engine::DiligentCore)
     set(unofficial-diligent-engine_FOUND FALSE)
     set(unofficial-diligent-engine_NOT_FOUND_MESSAGE
