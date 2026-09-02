@@ -11,7 +11,7 @@ as a registry source and pull in only the ports they list.
 | `choreograph` | 2016-07-21 | [sansumbrella/Choreograph](https://github.com/sansumbrella/Choreograph) |
 | `diligent-engine` | 2026-07-22 (also 2.5.6) | [DiligentGraphics/DiligentEngine](https://github.com/DiligentGraphics/DiligentEngine) |
 | `example-lib` | 1.0.0 | (template) |
-| `skia` | 151 | [google/skia](https://skia.googlesource.com/skia) |
+| `skia` | 151#2 | [google/skia](https://skia.googlesource.com/skia) |
 
 `diligent-engine` is registered at two versions. The baseline is a snapshot of
 the `master` branch, which is where Diligent lands finished work between its
@@ -51,6 +51,24 @@ Two of these deliberately shadow or diverge from what vcpkg ships upstream:
   `SkString::validate()`. The feature rebuilds Skia with default visibility so
   one host can be the single Skia image for its plugins. It is opt-in because
   the cost is a much larger dynamic symbol table.
+
+  Its `avif` feature asks for `libavif[dav1d]`. libavif with no codec feature
+  parses an AVIF container and decodes no frame from it, with no error at
+  build, link or run time — so a decoder is part of what "AVIF support" means.
+
+  Its exported config also differs from the builtin port's in how it states the
+  link interface. Frameworks are resolved with `find_library` to the absolute
+  path of the bundle, not left as the opaque flag string `-framework Foo`,
+  which reaches the link line unsplit and which `swiftc` rejects; from a path
+  CMake writes the spelling each driver wants. And a dependency whose vcpkg
+  config exports an imported target — `PNG::PNG`, `ZLIB::ZLIB`, `JPEG::JPEG`,
+  `expat::expat`, `WebP::*`, `freetype`, `harfbuzz::*`, `ICU::*`, `BZip2::BZip2`,
+  `unofficial::brotli::*`, `avif`, `yuv` — is named by that target rather than
+  flattened to an archive path. CMake de-duplicates targets against targets and
+  paths against paths, never a target against a path, so a path here would meet
+  the same archive named as a target by freetype's or OpenImageIO's config and
+  both would reach the linker. A name with no such target falls back to the
+  resolved path.
 - **`diligent-engine`** has no upstream vcpkg port. It builds the DiligentCore,
   DiligentTools and DiligentFX modules, pinning each of the 17 nested submodules
   itself (only release archives bundle them), and adds the CMake package
