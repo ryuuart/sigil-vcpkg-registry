@@ -1,0 +1,11 @@
+{
+  "name": "syphon",
+  "version-date": "2025-10-06",
+  "description": [
+    "Syphon: share frames between macOS applications as GPU textures.",
+    "An IOSurface-backed publish/subscribe protocol with a Metal and an OpenGL server and client. Upstream is an Xcode framework project with no build system of its own; this port builds the framework and supplies a CMake package for it."
+  ],
+  "homepage": "https://github.com/Syphon/Syphon-Framework",
+  "license": "BSD-3-Clause",
+  "supports": "osx"
+}

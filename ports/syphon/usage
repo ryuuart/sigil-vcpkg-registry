@@ -1,0 +1,13 @@
+syphon provides CMake targets:
+
+    find_package(unofficial-syphon CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE unofficial::syphon::syphon)
+
+Headers are reached through the framework:
+
+    #import <Syphon/SyphonMetalServer.h>
+
+Syphon.framework is installed under lib/ and is loaded by its bundle-relative
+install name, so a binary built against the target finds it where vcpkg put
+it. An application that ships copies the framework into its own bundle and
+adds the loader path for it.
