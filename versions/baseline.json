@@ -12,6 +12,10 @@
       "baseline": "1.0.0",
       "port-version": 0
     },
+    "shader-slang": {
+      "baseline": "2026.17",
+      "port-version": 0
+    },
     "skia": {
       "baseline": "151",
       "port-version": 2
