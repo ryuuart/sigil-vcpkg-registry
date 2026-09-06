@@ -11,6 +11,7 @@ as a registry source and pull in only the ports they list.
 | `choreograph` | 2016-07-21 | [sansumbrella/Choreograph](https://github.com/sansumbrella/Choreograph) |
 | `diligent-engine` | 2026-07-22#2 (also 2.5.6) | [DiligentGraphics/DiligentEngine](https://github.com/DiligentGraphics/DiligentEngine) |
 | `example-lib` | 1.0.0 | (template) |
+| `shader-slang` | 2026.17 | [shader-slang/slang](https://github.com/shader-slang/slang) |
 | `skia` | 151#2 | [google/skia](https://skia.googlesource.com/skia) |
 
 `diligent-engine` is registered at two versions. The baseline is a snapshot of
@@ -29,7 +30,25 @@ Note that the two use different version schemes (`date` and `relaxed`), which
 vcpkg cannot order against each other. An exact `overrides` pin works, but a
 `version>=` constraint spanning them fails with an incomparable-schemes error.
 
-Two of these deliberately shadow or diverge from what vcpkg ships upstream:
+Three of these deliberately shadow or diverge from what vcpkg ships upstream:
+
+- **`shader-slang`** is vcpkg's builtin port — a downloader for the official
+  release archives, not a build — carried forward to 2026.17. The builtin one
+  stops at 2026.7.1, whose SPIR-V emitter writes no `NoContraction` decoration
+  on any arithmetic even under `-fp-mode precise`; from 2026.13 the emitter
+  decorates every scalar, vector and matrix float arithmetic result, which is
+  what lets a kernel compiled once for the host and once for a device round the
+  same way in both. A consumer only gets this version if `"shader-slang"` is
+  listed in this registry's `packages` array.
+
+  It also installs release binaries only. The distribution has one build of
+  Slang and it is a release build; the builtin port copies it under the debug
+  prefix as well, which leaves a second dylib of every Slang name beside the
+  debug builds of other packages. A Debug link that resolves Slang from one
+  prefix and a neighbour from the other has no ordering of the two directories
+  that satisfies both, and CMake answers with a runtime-search-path cycle
+  warning and no rpath. The imported targets name the release library for a
+  Debug, RelWithDebInfo and MinSizeRel configuration instead.
 
 - **`skia`** is a fork of vcpkg's builtin `skia` port, which tracks milestone
   148. This copy is bumped to the `chrome/m151` branch head, with the external
@@ -100,7 +119,7 @@ Two of these deliberately shadow or diverge from what vcpkg ships upstream:
   platform definitions at all, so the engine's surface entry point would be
   missing from it too.
 
-Both ports were build-tested on `arm64-osx`, and `diligent-engine` also on
+`skia` and `diligent-engine` were build-tested on `arm64-osx`, and `diligent-engine` also on
 `arm64-osx-dynamic`; other triplets are unverified. The Windows shared-library
 path in particular is written from upstream's build rules rather than observed.
 

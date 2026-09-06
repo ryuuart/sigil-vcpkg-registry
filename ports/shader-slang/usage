@@ -1,0 +1,15 @@
+shader-slang provides CMake targets:
+
+    find_package(slang CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE slang::slang)
+
+The compiler driver is an imported executable of the same package:
+
+    add_custom_command(COMMAND slang::slangc <source> -target spirv -o <out>)
+
+Include as:
+
+    #include <slang.h>
+
+Only release binaries are installed. The imported targets name them for a
+Debug configuration too, so a Debug link searches one directory for Slang.
