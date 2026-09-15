@@ -1,0 +1,39 @@
+--- a/src/impl/peerconnection.cpp
++++ b/src/impl/peerconnection.cpp
+@@ -171,7 +171,20 @@
+ 						    break;
+ 					    case IceTransport::State::Connected:
+ 						    changeIceState(IceState::Connected);
+-						    initDtlsTransport();
++						    // A DTLS transport that fails to start is this
++						    // connection failing and nothing more. This runs on
++						    // the ICE thread, which calls back through C frames
++						    // carrying no handler, so an exception leaving here
++						    // ends the process rather than the connection.
++						    try {
++							    initDtlsTransport();
++						    } catch (...) {
++							    PLOG_ERROR << "DTLS transport failed to start";
++							    changeIceState(IceState::Failed);
++							    changeState(State::Failed);
++							    mProcessor.enqueue(&PeerConnection::remoteClose,
++								                   shared_from_this());
++						    }
+ 						    break;
+ 					    case IceTransport::State::Completed:
+ 						    changeIceState(IceState::Completed);
+--- a/src/impl/sctptransport.cpp
++++ b/src/impl/sctptransport.cpp
+@@ -775,6 +775,12 @@
+ 
+ 	} catch (const std::exception &e) {
+ 		PLOG_ERROR << "SCTP write: " << e.what();
++		return -1;
++	} catch (...) {
++		// A write on a transport being torn down is a refused write. This
++		// runs on a usrsctp C frame carrying no handler, so an exception
++		// leaving here ends the process rather than the write.
++		PLOG_ERROR << "SCTP write failed";
+ 		return -1;
+ 	}
+ 	return 0; // success
