@@ -14,6 +14,7 @@ as a registry source and pull in only the ports they list.
 | `libdatachannel` | 0.24.3#1 | [paullouisageneau/libdatachannel](https://github.com/paullouisageneau/libdatachannel) |
 | `shader-slang` | 2026.17 | [shader-slang/slang](https://github.com/shader-slang/slang) |
 | `skia` | 151#2 | [google/skia](https://skia.googlesource.com/skia) |
+| `syphon` | 2025-10-06 | [Syphon/Syphon-Framework](https://github.com/Syphon/Syphon-Framework) |
 
 `diligent-engine` is registered at two versions. The baseline is a snapshot of
 the `master` branch, which is where Diligent lands finished work between its
