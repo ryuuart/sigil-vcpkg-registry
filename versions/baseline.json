@@ -12,6 +12,10 @@
       "baseline": "1.0.0",
       "port-version": 0
     },
+    "libdatachannel": {
+      "baseline": "0.24.3",
+      "port-version": 1
+    },
     "shader-slang": {
       "baseline": "2026.17",
       "port-version": 0

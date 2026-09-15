@@ -11,6 +11,7 @@ as a registry source and pull in only the ports they list.
 | `choreograph` | 2016-07-21 | [sansumbrella/Choreograph](https://github.com/sansumbrella/Choreograph) |
 | `diligent-engine` | 2026-07-22#2 (also 2.5.6) | [DiligentGraphics/DiligentEngine](https://github.com/DiligentGraphics/DiligentEngine) |
 | `example-lib` | 1.0.0 | (template) |
+| `libdatachannel` | 0.24.3#1 | [paullouisageneau/libdatachannel](https://github.com/paullouisageneau/libdatachannel) |
 | `shader-slang` | 2026.17 | [shader-slang/slang](https://github.com/shader-slang/slang) |
 | `skia` | 151#2 | [google/skia](https://skia.googlesource.com/skia) |
 
@@ -30,7 +31,7 @@ Note that the two use different version schemes (`date` and `relaxed`), which
 vcpkg cannot order against each other. An exact `overrides` pin works, but a
 `version>=` constraint spanning them fails with an incomparable-schemes error.
 
-Three of these deliberately shadow or diverge from what vcpkg ships upstream:
+Four of these deliberately shadow or diverge from what vcpkg ships upstream:
 
 - **`shader-slang`** is vcpkg's builtin port — a downloader for the official
   release archives, not a build — carried forward to 2026.17. The builtin one
@@ -88,6 +89,30 @@ Three of these deliberately shadow or diverge from what vcpkg ships upstream:
   the same archive named as a target by freetype's or OpenImageIO's config and
   both would reach the linker. A name with no such target falls back to the
   resolved path.
+- **`libdatachannel`** is vcpkg's builtin port at the same upstream version,
+  0.24.3, with one patch added and the port version bumped so that this copy
+  shadows the builtin one. The library ends the whole process from threads it
+  owns: the ICE state change that starts the DTLS transport throws when the
+  handshake's first write fails, and the SCTP write callback throws when the
+  protocol underneath is already shut down. Either throw travels up the C
+  frames the library is called back through — libjuice's poll sweep under the
+  first, usrsctp's under the second — where no frame of a consumer's stands, so
+  nothing a consumer guards can catch it and the process aborts. The patch
+  makes each one connection's failure reported through its state: a failed
+  handshake start takes the Failed state that ICE callback already gives a
+  route nobody found, and a write on a transport being torn down is refused
+  with -1 the way its neighbours are. Two ICE agents completing on one poll
+  sweep provoke the first, which is what two ends of a conversation in one
+  process arrange; teardown provokes the second.
+
+  Both guards are catch-alls. The library's own guards on these two paths catch
+  `const std::exception &`, which matches nothing in an image that carries a
+  hidden `typeinfo for std::exception` of its own — a static dependency
+  compiled with hidden visibility emits one, and the handler search compares a
+  type_info by address. Because the port name matches a builtin one, a consumer
+  only gets this version if `"libdatachannel"` is listed in this registry's
+  `packages` array.
+
 - **`diligent-engine`** has no upstream vcpkg port. It builds the DiligentCore,
   DiligentTools and DiligentFX modules, pinning each of the 17 nested submodules
   itself (only release archives bundle them), and adds the CMake package
@@ -119,8 +144,8 @@ Three of these deliberately shadow or diverge from what vcpkg ships upstream:
   platform definitions at all, so the engine's surface entry point would be
   missing from it too.
 
-`skia` and `diligent-engine` were build-tested on `arm64-osx`, and `diligent-engine` also on
-`arm64-osx-dynamic`; other triplets are unverified. The Windows shared-library
+`skia`, `diligent-engine` and `libdatachannel` were build-tested on `arm64-osx`, and
+`diligent-engine` also on `arm64-osx-dynamic`; other triplets are unverified. The Windows shared-library
 path in particular is written from upstream's build rules rather than observed.
 
 ## Layout
