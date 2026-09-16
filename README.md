@@ -13,8 +13,9 @@ as a registry source and pull in only the ports they list.
 | `example-lib` | 1.0.0 | (template) |
 | `libdatachannel` | 0.24.3#1 | [paullouisageneau/libdatachannel](https://github.com/paullouisageneau/libdatachannel) |
 | `shader-slang` | 2026.17 | [shader-slang/slang](https://github.com/shader-slang/slang) |
-| `skia` | 151#2 | [google/skia](https://skia.googlesource.com/skia) |
+| `skia` | 151#3 | [google/skia](https://skia.googlesource.com/skia) |
 | `syphon` | 2025-10-06 | [Syphon/Syphon-Framework](https://github.com/Syphon/Syphon-Framework) |
+| `yoga` | 3.2.1#1 | [facebook/yoga](https://github.com/facebook/yoga) |
 
 `diligent-engine` is registered at two versions. The baseline is a snapshot of
 the `master` branch, which is where Diligent lands finished work between its
@@ -32,7 +33,7 @@ Note that the two use different version schemes (`date` and `relaxed`), which
 vcpkg cannot order against each other. An exact `overrides` pin works, but a
 `version>=` constraint spanning them fails with an incomparable-schemes error.
 
-Four of these deliberately shadow or diverge from what vcpkg ships upstream:
+Five of these deliberately shadow or diverge from what vcpkg ships upstream:
 
 - **`shader-slang`** is vcpkg's builtin port — a downloader for the official
   release archives, not a build — carried forward to 2026.17. The builtin one
@@ -77,6 +78,22 @@ Four of these deliberately shadow or diverge from what vcpkg ships upstream:
   parses an AVIF container and decodes no frame from it, with no error at
   build, link or run time — so a decoder is part of what "AVIF support" means.
 
+  Its raw codec is compiled with run-time type information on. Skia's `raw`
+  target — `SkRawCodec.cpp`, built when the `dng` feature is on, which it is by
+  default — carries `add_exceptions`, because the codec catches what the DNG SDK
+  throws, over the `no_rtti` default every Skia target carries. A translation
+  unit compiled with exceptions and without run-time type information emits a
+  private, non-unique copy of the typeinfo of every standard exception type it
+  names, and the linker satisfies every other object's reference to those names
+  with that copy. The handler search compares a typeinfo by address, so in any
+  binary linking `libskia.a` a `catch (const std::exception &)` matches nothing
+  the standard library throws, and a process that wrote a handler for what it
+  caught terminates instead. Skia's own dng_sdk target already pairs `add_rtti`
+  with `add_exceptions`; the codec that catches from it is the omission, and the
+  patch gives it the same pair. Leaving the raw codec out of the build instead
+  would answer only for a consumer who does not want it, and leave the trap
+  standing for one who asks for `dng`.
+
   Its exported config also differs from the builtin port's in how it states the
   link interface. Frameworks are resolved with `find_library` to the absolute
   path of the bundle, not left as the opaque flag string `-framework Foo`,
@@ -114,6 +131,20 @@ Four of these deliberately shadow or diverge from what vcpkg ships upstream:
   only gets this version if `"libdatachannel"` is listed in this registry's
   `packages` array.
 
+- **`yoga`** is vcpkg's builtin port at the same upstream version, 3.2.1, with
+  one patch added and the port version bumped so that this copy shadows the
+  builtin one. Yoga's `cmake/project-defaults.cmake` compiles the library with
+  exceptions enabled and run-time type information disabled, and ten of its
+  objects throw or catch a standard exception. Each of them therefore emits a
+  private, non-unique copy of that type's typeinfo, and the linker satisfies
+  every other object's reference to the name with that copy — so in any binary
+  linking `libyogacore.a` a `catch (const std::exception &)` matches nothing the
+  standard library throws, because the handler search compares a typeinfo by
+  address. The patch leaves run-time type information on and changes nothing
+  else; exceptions stay as they are. Because the port name matches a builtin
+  one, a consumer only gets this version if `"yoga"` is listed in this
+  registry's `packages` array.
+
 - **`diligent-engine`** has no upstream vcpkg port. It builds the DiligentCore,
   DiligentTools and DiligentFX modules, pinning each of the 17 nested submodules
   itself (only release archives bundle them), and adds the CMake package
@@ -145,7 +176,7 @@ Four of these deliberately shadow or diverge from what vcpkg ships upstream:
   platform definitions at all, so the engine's surface entry point would be
   missing from it too.
 
-`skia`, `diligent-engine` and `libdatachannel` were build-tested on `arm64-osx`, and
+`skia`, `diligent-engine`, `libdatachannel` and `yoga` were build-tested on `arm64-osx`, and
 `diligent-engine` also on `arm64-osx-dynamic`; other triplets are unverified. The Windows shared-library
 path in particular is written from upstream's build rules rather than observed.
 
