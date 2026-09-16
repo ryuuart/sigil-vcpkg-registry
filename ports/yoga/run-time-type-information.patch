@@ -1,0 +1,32 @@
+--- a/cmake/project-defaults.cmake
++++ b/cmake/project-defaults.cmake
+@@ -21,8 +21,12 @@
+     # Enable warnings and warnings as errors
+     /W4
+     /WX
+-    # Disable RTTI
+-    $<$<COMPILE_LANGUAGE:CXX>:/GR->
++    # Run-time type information stays on. An object compiled without it that
++    # throws or catches a standard exception emits a private copy of that
++    # type's typeinfo, and the linker binds every other object's reference to
++    # the name to that copy; a consumer's `catch (const std::exception &)`
++    # then compares it against the unique typeinfo the standard library throws
++    # and matches nothing.
+     # Use /O2 (Maximize Speed)
+     $<$<CONFIG:RELEASE>:/O2>)
+ 
+@@ -36,8 +40,12 @@
+     # Enable warnings and warnings as errors
+     -Wall
+     -Werror
+-    # Disable RTTI
+-    $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>
++    # Run-time type information stays on. An object compiled without it that
++    # throws or catches a standard exception emits a private copy of that
++    # type's typeinfo, and the linker binds every other object's reference to
++    # the name to that copy; a consumer's `catch (const std::exception &)`
++    # then compares it against the unique typeinfo the standard library throws
++    # and matches nothing.
+     # Use -O2 (prioritize speed)
+     $<$<CONFIG:RELEASE>:-O2>
+     # Enable separate sections per function/data item
