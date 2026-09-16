@@ -22,11 +22,15 @@
     },
     "skia": {
       "baseline": "151",
-      "port-version": 2
+      "port-version": 3
     },
     "syphon": {
       "baseline": "2025-10-06",
       "port-version": 0
+    },
+    "yoga": {
+      "baseline": "3.2.1",
+      "port-version": 1
     }
   }
 }
