@@ -13,7 +13,7 @@ as a registry source and pull in only the ports they list.
 | `example-lib` | 1.0.0 | (template) |
 | `libdatachannel` | 0.24.3#1 | [paullouisageneau/libdatachannel](https://github.com/paullouisageneau/libdatachannel) |
 | `shader-slang` | 2026.17 | [shader-slang/slang](https://github.com/shader-slang/slang) |
-| `skia` | 151#3 | [google/skia](https://skia.googlesource.com/skia) |
+| `skia` | 151#4 | [google/skia](https://skia.googlesource.com/skia) |
 | `syphon` | 2025-10-06 | [Syphon/Syphon-Framework](https://github.com/Syphon/Syphon-Framework) |
 | `yoga` | 3.2.1#1 | [facebook/yoga](https://github.com/facebook/yoga) |
 
@@ -78,21 +78,20 @@ Five of these deliberately shadow or diverge from what vcpkg ships upstream:
   parses an AVIF container and decodes no frame from it, with no error at
   build, link or run time — so a decoder is part of what "AVIF support" means.
 
-  Its raw codec is compiled with run-time type information on. Skia's `raw`
-  target — `SkRawCodec.cpp`, built when the `dng` feature is on, which it is by
-  default — carries `add_exceptions`, because the codec catches what the DNG SDK
-  throws, over the `no_rtti` default every Skia target carries. A translation
-  unit compiled with exceptions and without run-time type information emits a
-  private, non-unique copy of the typeinfo of every standard exception type it
-  names, and the linker satisfies every other object's reference to those names
-  with that copy. The handler search compares a typeinfo by address, so in any
-  binary linking `libskia.a` a `catch (const std::exception &)` matches nothing
-  the standard library throws, and a process that wrote a handler for what it
-  caught terminates instead. Skia's own dng_sdk target already pairs `add_rtti`
-  with `add_exceptions`; the codec that catches from it is the omission, and the
-  patch gives it the same pair. Leaving the raw codec out of the build instead
-  would answer only for a consumer who does not want it, and leave the trap
-  standing for one who asks for `dng`.
+  It is built with run-time type information on throughout, where Skia's own
+  defaults turn it off for every target. A translation unit compiled without it
+  that throws or catches a standard exception emits a private, non-unique copy
+  of the typeinfo of every standard exception type it names, and the linker
+  satisfies every other object's reference to those names with that copy. The
+  handler search compares a typeinfo by address, so in any binary linking
+  `libskia.a` a `catch (const std::exception &)` matches nothing the standard
+  library throws, and a process that wrote a handler for what it caught
+  terminates instead. Skia's raw codec — `SkRawCodec.cpp`, built when the `dng`
+  feature is on, which it is by default — is such a unit, since it catches what
+  the DNG SDK throws; it cannot be built with type information alone, because
+  its typeinfo then names base classes the rest of the archive built without.
+  Whole-library is the one arrangement in which every Skia typeinfo is the real
+  one, whatever features are on. The table row's port version counts this.
 
   Its exported config also differs from the builtin port's in how it states the
   link interface. Frameworks are resolved with `find_library` to the absolute

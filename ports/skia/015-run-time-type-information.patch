@@ -1,0 +1,15 @@
+--- a/gn/BUILDCONFIG.gn
++++ b/gn/BUILDCONFIG.gn
+@@ -182,7 +182,11 @@
+ default_configs = [
+   "//gn/skia:default",
+   "//gn/skia:no_exceptions",
+-  "//gn/skia:no_rtti",
++  # Run-time type information stays on. A translation unit compiled without
++  # it that throws or catches a standard exception emits a private copy of
++  # that type's typeinfo, which a consumer's base-class catch then compares
++  # against the unique one the standard library throws and matches nothing;
++  # and a unit built with it alone cannot name base classes built without.
+   "//gn/skia:strict_aliasing",
+ ]
+ if (!is_debug) {
