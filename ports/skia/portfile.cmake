@@ -1,6 +1,22 @@
 # Derived from vcpkg's builtin `skia` port (which tracks milestone 148) and
 # bumped to the chrome/m151 branch head. The external revisions below are taken
 # from that branch's DEPS file, and patches 002/008/010 were rebased onto it.
+#
+# Patch 015 is this port's own. Skia's `raw` target compiles SkRawCodec.cpp with
+# exceptions turned on -- it catches what the DNG SDK throws -- and with
+# run-time type information off, which is the default every Skia target carries.
+# A translation unit compiled that way emits a private, non-unique copy of the
+# typeinfo of every standard exception type it catches or throws, and the linker
+# satisfies every other object's reference to those names with that copy. The
+# handler search compares a typeinfo by address, so a
+# `catch (const std::exception &)` anywhere in an image holding SkRawCodec.o
+# matches nothing the standard library throws, and a process that had written a
+# handler for what it caught terminates instead. Skia's own dng_sdk target
+# already pairs `add_rtti` with `add_exceptions`; the codec that catches from it
+# is the omission, and the patch gives it the same pair. Leaving the raw codec
+# out of the build instead would answer for a consumer who does not want it and
+# leave the trap standing for one who asks for the `dng` feature, which is a
+# default feature of this port and is how a raw decoder is spelled here.
 
 include("${CMAKE_CURRENT_LIST_DIR}/skia-functions.cmake")
 
@@ -27,6 +43,8 @@ vcpkg_from_github(
 
         # Used in src/gpu/ganesh/d3d/GrD3DBackendSurface.cpp:118, next time we update skia port, check if this patch is still needed
         014-fix-direct3d.patch
+
+        015-raw-codec-run-time-type-information.patch
 )
 
 # De-vendor
