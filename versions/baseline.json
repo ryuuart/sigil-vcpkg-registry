@@ -22,7 +22,7 @@
     },
     "skia": {
       "baseline": "151",
-      "port-version": 3
+      "port-version": 4
     },
     "syphon": {
       "baseline": "2025-10-06",
