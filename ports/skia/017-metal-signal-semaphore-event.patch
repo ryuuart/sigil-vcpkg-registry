@@ -1,0 +1,13 @@
+diff --git a/src/gpu/graphite/mtl/MtlCommandBuffer.mm b/src/gpu/graphite/mtl/MtlCommandBuffer.mm
+--- a/src/gpu/graphite/mtl/MtlCommandBuffer.mm
++++ b/src/gpu/graphite/mtl/MtlCommandBuffer.mm
+@@ -147,7 +147,8 @@
+     for (size_t i = 0; i < numSignalSemaphores; ++i) {
+         auto semaphore = signalSemaphores[i];
+         if (semaphore.isValid() && semaphore.backend() == BackendApi::kMetal) {
+-            id<MTLEvent> mtlEvent = (__bridge id<MTLEvent>)BackendSemaphores::GetMtlEvent;
++            id<MTLEvent> mtlEvent =
++                    (__bridge id<MTLEvent>)BackendSemaphores::GetMtlEvent(semaphore);
+             [(*fCommandBuffer) encodeSignalEvent:mtlEvent
+                                            value:BackendSemaphores::GetMtlValue(semaphore)];
+         }

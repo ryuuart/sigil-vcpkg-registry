@@ -15,6 +15,16 @@
 # its typeinfo then names base classes the rest of the archive built without.
 # Whole-library is the one arrangement in which every Skia typeinfo is the
 # real one, whatever features are on.
+#
+# Patch 016 is this port's own: Graphite on MoltenVK reloads the whole
+# multisample attachment at the start of a pass that continues a target, as it
+# already does on Qualcomm's driver. MoltenVK resolves the whole attachment at
+# the end of every pass, so a reload kept to the pass's render area loses what
+# an earlier pass drew outside it.
+#
+# Patch 017 is this port's own: the Metal command buffer signals the event a
+# signal semaphore carries, as its wait path already does, instead of handing
+# the signal call the address of the function that reads the event.
 
 include("${CMAKE_CURRENT_LIST_DIR}/skia-functions.cmake")
 
@@ -43,6 +53,8 @@ vcpkg_from_github(
         014-fix-direct3d.patch
 
         015-run-time-type-information.patch
+        016-moltenvk-load-full-image-for-msaa.patch
+        017-metal-signal-semaphore-event.patch
 )
 
 # De-vendor

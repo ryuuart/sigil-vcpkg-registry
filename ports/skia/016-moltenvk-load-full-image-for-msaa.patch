@@ -1,0 +1,19 @@
+diff --git a/src/gpu/graphite/vk/VulkanCaps.cpp b/src/gpu/graphite/vk/VulkanCaps.cpp
+--- a/src/gpu/graphite/vk/VulkanCaps.cpp
++++ b/src/gpu/graphite/vk/VulkanCaps.cpp
+@@ -611,6 +611,15 @@
+         fMustLoadFullImageForMSAA = true;
+     }
+ 
++    // MoltenVK resolves the whole multisample attachment at the end of every render pass, not
++    // only the pass's render area, while Graphite reloads the attachment only inside that area
++    // when a pass continues a target. Everything outside the area then resolves from contents
++    // the device was allowed to discard, so what an earlier pass drew there is lost. Reloading
++    // the full image keeps it.
++    if (VK_DRIVER_ID_MOLTENVK == driverID) {
++        fMustLoadFullImageForMSAA = true;
++    }
++
+     // MSAA doesn't work well on Intel GPUs crbug.com/40434119, crbug.com/41470715
+     if (isIntel) {
+         fAvoidMSAA = true;

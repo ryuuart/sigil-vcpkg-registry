@@ -13,7 +13,7 @@ as a registry source and pull in only the ports they list.
 | `example-lib` | 1.0.0 | (template) |
 | `libdatachannel` | 0.24.3#1 | [paullouisageneau/libdatachannel](https://github.com/paullouisageneau/libdatachannel) |
 | `shader-slang` | 2026.17 | [shader-slang/slang](https://github.com/shader-slang/slang) |
-| `skia` | 151#4 | [google/skia](https://skia.googlesource.com/skia) |
+| `skia` | 151#5 | [google/skia](https://skia.googlesource.com/skia) |
 | `syphon` | 2025-10-06 | [Syphon/Syphon-Framework](https://github.com/Syphon/Syphon-Framework) |
 | `yoga` | 3.2.1#1 | [facebook/yoga](https://github.com/facebook/yoga) |
 
@@ -92,6 +92,16 @@ Five of these deliberately shadow or diverge from what vcpkg ships upstream:
   its typeinfo then names base classes the rest of the archive built without.
   Whole-library is the one arrangement in which every Skia typeinfo is the real
   one, whatever features are on. The table row's port version counts this.
+
+  It carries two repairs to Graphite that upstream does not. On MoltenVK, a
+  pass that continues a multisampled target reloads the whole multisample
+  attachment, as Graphite already does on Qualcomm's driver: MoltenVK resolves
+  the whole attachment at the end of every pass, so a reload kept to the pass's
+  render area loses what an earlier pass drew outside it. And the Metal command
+  buffer signals the event a signal semaphore carries, as its wait path already
+  does; upstream hands the signal call the address of the function that reads
+  the event, so any recording inserted on a Metal context with a signal
+  semaphore faults.
 
   Its exported config also differs from the builtin port's in how it states the
   link interface. Frameworks are resolved with `find_library` to the absolute
