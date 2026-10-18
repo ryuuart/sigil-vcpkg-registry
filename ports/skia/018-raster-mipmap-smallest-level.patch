@@ -1,0 +1,19 @@
+diff --git a/src/core/SkMipmapAccessor.cpp b/src/core/SkMipmapAccessor.cpp
+--- a/src/core/SkMipmapAccessor.cpp
++++ b/src/core/SkMipmapAccessor.cpp
+@@ -86,7 +86,14 @@
+ 
+             SkASSERT(resolvedMode != SkMipmapMode::kNone);
+             if (levelNum > 0) {
+-                if (fCurrMip->getLevel(levelNum - 1, &levelRec)) {
++                // Past the smallest level, the smallest is the nearest there is: it is read
++                // alone, rather than the base read with no filtering at all.
++                const int smallestLevel = fCurrMip->countLevels();
++                if (levelNum > smallestLevel) {
++                    levelNum = smallestLevel;
++                    lowerWeight = 0;
++                }
++                if (levelNum > 0 && fCurrMip->getLevel(levelNum - 1, &levelRec)) {
+                     fUpper = levelRec.fPixmap;
+                 } else {
+                     load_upper_from_base();

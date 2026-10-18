@@ -25,6 +25,13 @@
 # Patch 017 is this port's own: the Metal command buffer signals the event a
 # signal semaphore carries, as its wait path already does, instead of handing
 # the signal call the address of the function that reads the event.
+#
+# Patch 018 is this port's own: a raster image drawn smaller than its smallest
+# mipmap level reads that smallest level. The raster mipmap accessor otherwise
+# falls back to the full-size image with no mipmapping at all once the level
+# it asks for lies past the chain, so an image drawn a fraction of a pixel
+# wide is point-sampled from its base and lays its whole area at one
+# placement and nothing at the next.
 
 include("${CMAKE_CURRENT_LIST_DIR}/skia-functions.cmake")
 
@@ -55,6 +62,7 @@ vcpkg_from_github(
         015-run-time-type-information.patch
         016-moltenvk-load-full-image-for-msaa.patch
         017-metal-signal-semaphore-event.patch
+        018-raster-mipmap-smallest-level.patch
 )
 
 # De-vendor
