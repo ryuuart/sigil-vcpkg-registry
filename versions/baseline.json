@@ -26,7 +26,7 @@
     },
     "syphon": {
       "baseline": "2025-10-06",
-      "port-version": 0
+      "port-version": 1
     },
     "yoga": {
       "baseline": "3.2.1",
