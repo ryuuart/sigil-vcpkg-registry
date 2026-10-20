@@ -1,0 +1,25 @@
+--- a/SyphonCFMessageReceiver.m
++++ b/SyphonCFMessageReceiver.m
+@@ -90,7 +90,10 @@
+ 	{
+ 		if ([protocolName isEqualToString:SyphonMessagingProtocolCFMessage])
+ 		{
+-			CFMessagePortContext context = (CFMessagePortContext){0,(__bridge void *)(self),NULL,NULL,NULL};
++			// The port holds the receiver for as long as it can call back into it:
++			// a message already queued when the receiver is invalidated is still
++			// delivered, and must not find the receiver gone.
++			CFMessagePortContext context = (CFMessagePortContext){0,(__bridge void *)(self),CFRetain,CFRelease,NULL};
+ 			_port = CFMessagePortCreateLocal(kCFAllocatorDefault, (CFStringRef)name, MessageReturnCallback, &context, NULL);
+ 		}
+ 		if (_port == NULL)
+@@ -112,6 +115,10 @@
+ 	if (_port)
+     {
+         CFMessagePortInvalidate(_port);
++        // The port retains this receiver, so it is released here rather
++        // than in dealloc, which would otherwise never run.
++        CFRelease(_port);
++        _port = NULL;
+         // we only called addUser if _port was created
+         [[self class] endUser];
+     }

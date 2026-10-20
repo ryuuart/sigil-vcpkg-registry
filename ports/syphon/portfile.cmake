@@ -23,6 +23,14 @@ vcpkg_from_github(
     REF 71351d4b484cd2d1917867f7846a5cdca724552d
     SHA512 543f4caa1b34f5d1ef5d83e781b68a0eff1814b86be8e7e7351d2cae82fce49cf0d463addbc42715d5bb868df98802dbb2c0fc19ffa75e92aadb2330d640d096
     HEAD_REF main
+    PATCHES
+        # The message receiver hands its port a context that neither retains
+        # nor releases it, and invalidating the port does not drain the
+        # messaging queue, so a message already queued when a subscriber
+        # leaves calls back into a receiver that has been freed. The port's
+        # context retains the receiver and invalidate releases the port, so
+        # the receiver outlives every callback queued for it.
+        001-receiver-outlives-its-port.patch
 )
 
 # xcodebuild names architectures the way the compiler does, which is what
