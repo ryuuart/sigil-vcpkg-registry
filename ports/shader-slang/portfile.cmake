@@ -116,6 +116,9 @@ vcpkg_extract_source_archive(
 	BINDIST_PATH
 	ARCHIVE "${ARCHIVE}"
 	NO_REMOVE_ONE_LEVEL
+	# The C++ prelude includes <stdfloat> under C++23, which a standard
+	# library may not ship yet; include it only where it exists.
+	PATCHES 001-stdfloat-only-where-the-library-has-it.patch
 )
 
 if(DEBUG_INFO_ARCHIVE)

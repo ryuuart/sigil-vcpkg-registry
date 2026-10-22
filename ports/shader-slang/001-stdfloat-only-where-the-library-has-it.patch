@@ -1,0 +1,11 @@
+--- a/include/slang-cpp-scalar-intrinsics.h	2026-10-22 03:17:22
++++ b/include/slang-cpp-scalar-intrinsics.h	2026-10-22 03:17:22
+@@ -645,7 +645,7 @@
+ }
+ 
+ #ifndef SLANG_LLVM
+-#if __cplusplus >= 202302L
++#if __cplusplus >= 202302L && __has_include(<stdfloat>)
+ #include <stdfloat> // C++23
+ #else
+ // Define __STDC_WANT_IEC_60559_TYPES_EXT__ for compilers with reliable _Float16 support:
